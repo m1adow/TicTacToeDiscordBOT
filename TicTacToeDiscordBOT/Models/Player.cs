@@ -30,11 +30,9 @@
     public enum PlayerState
     {
         Basic = 0,
-        Game = 1,
-        MakeStep = 2,
-        AwaitingQueue = 3,
         CreateLobby = 10,
         JoinLobby = 11,
+        AwaitingQueue = 12,
         EnterVerticalStep = 20,
         EnterGorizontalStep = 21
     }

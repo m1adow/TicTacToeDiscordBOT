@@ -21,11 +21,14 @@ class Program
         _games = new List<Models.Game>();
 
         _client = new DiscordSocketClient();
-
-        _client.MessageReceived += OnMessageRecieved;
+      
+        _client.MessageReceived += OnMessageRecievedAsync;
         _client.Log += Log;
 
-        string token = "ODU5ODEyMDk3NjU1NTcwNDMy.YNyIag.VFyXKB9LT4cFqI32h7wfoMtyTjM";
+        string token = string.Empty;
+
+        using (var streamReader = new StreamReader($@"{Environment.CurrentDirectory}\token.txt"))
+            token = streamReader.ReadToEnd();
 
         await _client.LoginAsync(TokenType.Bot, token);
         await _client.StartAsync();
@@ -33,8 +36,10 @@ class Program
         Console.ReadLine();
     }
 
-    private async Task<Task> OnMessageRecieved(SocketMessage message)
+    private async Task<Task> OnMessageRecievedAsync(SocketMessage message)
     {
+        SocketGuild guild = _client.GetGuild(488362951087226880); //initiate guild with server id
+
         if (!message.Author.IsBot)
         {
             Player? currentPlayer = _players.FirstOrDefault(p => p.Id == message.Author.Id);
@@ -64,16 +69,23 @@ class Program
 
             if (currentPlayer.PlayerState == PlayerState.EnterGorizontalStep)
             {
+                if (message.Content == "!back")
+                {
+                    await message.Channel.SendMessageAsync("Write vertical index of your step");
+                    currentPlayer.PlayerState = PlayerState.EnterVerticalStep;
+                    return Task.CompletedTask;
+                }
+
                 if (!IsNumberRight("horizontal", message).Result) return Task.CompletedTask;
 
                 currentPlayer.SetIndex("horizontal", byte.Parse(message.Content));
 
                 Models.Game game = _games.FirstOrDefault(g => g.Lobby.Players.Contains(currentPlayer));
 
-                if(game.Field[currentPlayer.VerticalIndex - 1, currentPlayer.HorizontalIndex - 1] == game.Lobby.Players.FirstOrDefault(p => p != currentPlayer).Sign)
+                if (game.Field[currentPlayer.VerticalIndex - 1, currentPlayer.HorizontalIndex - 1] == game.Lobby.Players.FirstOrDefault(p => p != currentPlayer).Sign)
                 {
                     await message.Channel.SendMessageAsync($"\nThis cell was engaged");
-                    await message.Channel.SendMessageAsync($"Write vertical index of your step");
+                    await message.Channel.SendMessageAsync("Write vertical index of your step");
                     currentPlayer.PlayerState = PlayerState.EnterVerticalStep;
                     return Task.CompletedTask;
                 }
@@ -82,14 +94,19 @@ class Program
 
                 await message.Channel.SendMessageAsync(game.GetField());
 
-                Player enemy = game.Lobby.Players.FirstOrDefault(p => p != currentPlayer);               
+                Player enemy = game.Lobby.Players.FirstOrDefault(p => p != currentPlayer);
 
                 if (game.IsWin(currentPlayer.Sign))
                 {
-                    await message.Channel.SendMessageAsync($"We have a winner **{currentPlayer.Name}**");
+                    Lobby lobby = _lobbies.FirstOrDefault(l => l.Players.Contains(currentPlayer)); //lobby with current player
 
-                    _games.Remove(game);
-                    _lobbies.Remove(_lobbies.FirstOrDefault(p => p.Players.Contains(currentPlayer)));
+                    DeleteChannelAsync(lobby);
+
+                    var channel = _client.GetChannel(859791278194819072) as IMessageChannel; //id of default channel of discord server
+                    await channel.SendMessageAsync($"We have a winner **{currentPlayer.Name}** in lobby **{lobby.LobbyName}**");
+
+                    _games.Remove(game); //delete ended game
+                    _lobbies.Remove(_lobbies.FirstOrDefault(p => p.Players.Contains(currentPlayer))); //delete ended lobby
                     currentPlayer.PlayerState = PlayerState.Basic;
                     enemy.PlayerState = PlayerState.Basic;
                     return Task.CompletedTask;
@@ -97,7 +114,12 @@ class Program
 
                 if (game.IsTie())
                 {
-                    await message.Channel.SendMessageAsync($"**TIE**");
+                    Lobby lobby = _lobbies.FirstOrDefault(l => l.Players.Contains(currentPlayer)); //lobby with current player
+
+                    DeleteChannelAsync(lobby); 
+
+                    var channel = _client.GetChannel(859791278194819072) as IMessageChannel; //id of default channel of discord server
+                    await channel.SendMessageAsync($"**TIE** in lobby **{lobby.LobbyName}**");
 
                     currentPlayer.PlayerState = PlayerState.Basic;
                     enemy.PlayerState = PlayerState.Basic;
@@ -123,8 +145,9 @@ class Program
                 Lobby lobby = new(message.Content);
                 lobby.AddPlayer(currentPlayer);
 
+                CreateChannelAsync(guild, lobby);
+
                 _lobbies.Add(lobby);
-                await message.Channel.SendMessageAsync($"Succesfully created lobby with name **\"{lobby.LobbyName}\"**. Await for another player");
                 currentPlayer.PlayerState = PlayerState.AwaitingQueue;
                 return Task.CompletedTask;
             }
@@ -143,26 +166,28 @@ class Program
                     return Task.CompletedTask;
                 }
 
-                currentPlayer.SetSign('X');
+                currentPlayer.SetSign('X'); //setting sign for connected player
 
                 var lobby = _lobbies.FirstOrDefault(l => l.LobbyName == message.Content);
 
                 lobby.AddPlayer(currentPlayer);
                 lobby.SetFull(true);
-
-                await message.Channel.SendMessageAsync($"Lobby was filled. Lobby name: {lobby.LobbyName}\nLaunching the game...\n");
+                SetLobbyChannelId(guild, lobby);
+                
+                var channel = _client.GetChannel(lobby.ChannelId) as IMessageChannel; //lobby channel at discord server
+                await channel.SendMessageAsync($"Lobby was filled. Lobby name: {lobby.LobbyName}\nLaunching the game...\n");
 
                 Models.Game game = new(lobby);
 
                 while (_games.Any(g => g.GameId == game.GameId)) game = new(lobby);
 
-                await message.Channel.SendMessageAsync(game.GetField());
+                await channel.SendMessageAsync(game.GetField());
                 _games.Add(game);
 
                 game.Lobby.Players.FirstOrDefault(p => p != currentPlayer).SetSign('O');
 
-                await message.Channel.SendMessageAsync($"\nPlayer with name **{currentPlayer.Name}** it's your turn\nYour sign is **\"X\"**\n\nPlayer with name **{game.Lobby.Players.FirstOrDefault(p => p != currentPlayer).Name}** await your turn.\nYour sign is **\"O\"**");
-                await message.Channel.SendMessageAsync($"\nWrite vertical index of your step");
+                await channel.SendMessageAsync($"\nPlayer with name **{currentPlayer.Name}** it's your turn\nYour sign is **\"X\"**\n\nPlayer with name **{game.Lobby.Players.FirstOrDefault(p => p != currentPlayer).Name}** await for your turn.\nYour sign is **\"O\"**");
+                await channel.SendMessageAsync($"\nWrite vertical index of your step");
                 currentPlayer.PlayerState = PlayerState.EnterVerticalStep;
 
                 return Task.CompletedTask;
@@ -192,6 +217,16 @@ class Program
         Console.WriteLine(message.ToString());
         return Task.CompletedTask;
     }
+
+    private async void CreateChannelAsync(SocketGuild guild, Lobby lobby) => await guild.CreateTextChannelAsync($"lobby {lobby.LobbyName}");
+
+    private async void DeleteChannelAsync(Lobby lobby)
+    {
+        var channel = _client.GetChannel(lobby.ChannelId) as SocketGuildChannel; //lobby channel at discord server
+        await channel.DeleteAsync();
+    }
+
+    private async void SetLobbyChannelId(SocketGuild guild, Lobby lobby) => lobby.SetChannelId(guild.Channels.FirstOrDefault(c => c.Name == $"lobby-{lobby.LobbyName}").Id); //setting id of lobby at discord server
 
     private async Task<bool> IsNumberRight(string dimension, SocketMessage message)
     {

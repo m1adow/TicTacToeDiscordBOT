@@ -4,6 +4,7 @@
     {
         public List<Player>? Players { get; private set; } = new(2);
         public string? LobbyName { get; private set; }
+        public ulong ChannelId { get; private set; }
         public bool IsFull { get; private set; }
 
         public Lobby(string lobbyName)
@@ -15,5 +16,7 @@
         public void AddPlayer(Player player) => Players.Add(player);
 
         public void SetFull(bool isFull) => IsFull = isFull;
+
+        public void SetChannelId(ulong channelId) => ChannelId = channelId;
     }
 }
