@@ -30,8 +30,8 @@
             else if (sign == Field[0, 0] && Field[0, 0] == Field[1, 0] && Field[1, 0] == Field[2, 0]) return true;
             else if (sign == Field[0, 2] && Field[0, 2] == Field[1, 2] && Field[1, 2] == Field[2, 2]) return true;
             else if (sign == Field[0, 4] && Field[0, 4] == Field[1, 4] && Field[1, 4] == Field[2, 4]) return true;
-            /*else if (sign == Field[0, 0] && Field[0, 0] == Field[1, 3] && Field[1, 3] == Field[3, 5]) return true;
-            else if (sign == Field[0, 5] && Field[0, 5] == Field[1, 3] && Field[1, 3] == Field[3, 1]) return true;*/
+            else if (sign == Field[0, 0] && Field[0, 0] == Field[1, 2] && Field[1, 2] == Field[2, 4]) return true;
+            else if (sign == Field[0, 4] && Field[0, 4] == Field[1, 2] && Field[1, 2] == Field[2, 0]) return true;
 
             return false;
         }
