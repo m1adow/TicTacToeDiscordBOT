@@ -61,6 +61,17 @@ class Program
                 //if lobby is not null bind channel to lobby channel
                 if (_lobbies.FirstOrDefault(l => l.Players.Contains(currentPlayer)) is not null) channel = _client.GetChannel(_lobbies.FirstOrDefault(l => l.Players.Contains(currentPlayer)).ChannelId) as IMessageChannel;
 
+                //construction for surrender
+                if ((currentPlayer.PlayerState == PlayerState.AwaitingQueue || currentPlayer.PlayerState == PlayerState.EnterGorizontalStep || currentPlayer.PlayerState == PlayerState.EnterVerticalStep) && message.Content == "!surrender")
+                {
+                    Models.Game game = _games.FirstOrDefault(g => g.Lobby.Players.Contains(currentPlayer)); //get game from looby which contains current player
+
+                    Player enemyPlayer = game.Lobby.Players.FirstOrDefault(p => p != currentPlayer); //get enemy player from game
+
+                    EndGameAsync(_client, _lobbies, _games, game, currentPlayer, enemyPlayer, $"**{currentPlayer.Name}** surrendered **{enemyPlayer.Name}** has winned");
+                    return Task.CompletedTask;
+                }
+
                 if (currentPlayer.PlayerState == PlayerState.AwaitingQueue)
                 {
                     await channel.SendMessageAsync("Your game or turn isn't ready");
@@ -69,10 +80,10 @@ class Program
 
                 if (currentPlayer.PlayerState == PlayerState.EnterVerticalStep)
                 {
-                    if (!IsNumberRight("vertical", message, channel).Result) return Task.CompletedTask;
+                    if (!IsNumberRight(message, channel).Result) return Task.CompletedTask;
 
                     currentPlayer.SetIndex("vertical", byte.Parse(message.Content));
-                    await channel.SendMessageAsync($"Write gorizontal index of your step");
+                    await channel.SendMessageAsync($"Write horizontal index of your step");
                     currentPlayer.PlayerState = PlayerState.EnterGorizontalStep;
                     return Task.CompletedTask;
                 }
@@ -87,14 +98,19 @@ class Program
                         return Task.CompletedTask;
                     }
 
-                    if (!IsNumberRight("horizontal", message, channel).Result) return Task.CompletedTask;
+                    if (!IsNumberRight(message, channel).Result) return Task.CompletedTask;
 
-                    currentPlayer.SetIndex("horizontal", byte.Parse(message.Content));
+                    byte horizontalIndex = byte.Parse(message.Content);
 
+                    if (horizontalIndex == 2) horizontalIndex += 1;
+                    else if (horizontalIndex == 3) horizontalIndex += 2;
+
+                    currentPlayer.SetIndex("horizontal", horizontalIndex);
+                    
                     Models.Game game = _games.FirstOrDefault(g => g.Lobby.Players.Contains(currentPlayer)); //game witch contain current player
 
                     //examination for engaged cell
-                    if (game.Field[currentPlayer.VerticalIndex - 1, currentPlayer.HorizontalIndex - 1] == game.Lobby.Players.FirstOrDefault(p => p != currentPlayer).Sign)
+                    if (game.Field[currentPlayer.VerticalIndex - 1, currentPlayer.HorizontalIndex - 1] != '-')
                     {
                         await channel.SendMessageAsync($"\nThis cell was engaged");
                         await channel.SendMessageAsync("Write vertical index of your step");
@@ -236,7 +252,7 @@ class Program
         await channel.DeleteAsync();
     }
 
-    private async void SetLobbyChannelId(SocketGuild guild, Lobby lobby) => lobby.SetChannelId(guild.Channels.FirstOrDefault(c => c.Name == $"lobby-{lobby.LobbyName}").Id); //setting id of lobby at discord server
+    private async void SetLobbyChannelId(SocketGuild guild, Lobby lobby) => lobby.SetChannelId(guild.Channels.FirstOrDefault(c => c.Name == $"lobby-{lobby.LobbyName.ToLower()}").Id); //setting id of lobby at discord server
 
     private async void EndGameAsync(DiscordSocketClient client, List<Lobby> lobbies, List<Models.Game> games, Models.Game game, Player currentPlayer, Player enemyPlayer, string text)
     {
@@ -253,7 +269,7 @@ class Program
         enemyPlayer.PlayerState = PlayerState.Basic;
     }
 
-    private async Task<bool> IsNumberRight(string dimension, SocketMessage message, IMessageChannel channel)
+    private async Task<bool> IsNumberRight(SocketMessage message, IMessageChannel channel)
     {
 
         if (message.Content.Any(a => char.IsLetter(a)))
@@ -268,25 +284,12 @@ class Program
             return false;
         }
 
-        if (dimension == "vertical" && (byte.Parse(message.Content) < 1 || byte.Parse(message.Content) > 3))
+        if (byte.Parse(message.Content) < 1 || byte.Parse(message.Content) > 3)
         {
             await channel.SendMessageAsync("Your message should contains number from 1 to 3");
             return false;
         }
 
-        if (dimension == "horizontal" && (byte.Parse(message.Content) < 1 || byte.Parse(message.Content) > 5))
-        {
-            await channel.SendMessageAsync("Your message should contains number from 1 to 5");
-            return false;
-        }
-
-        if (dimension == "horizontal" && (byte.Parse(message.Content) == 2 || byte.Parse(message.Content) == 4))
-        {
-            await channel.SendMessageAsync("Your message shouldn't equal 2 and 4");
-            return false;
-        }
-
         return true;
     }
-
 }
