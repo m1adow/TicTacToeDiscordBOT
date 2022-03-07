@@ -74,6 +74,19 @@ class Program
 
                 if (currentPlayer.PlayerState == PlayerState.AwaitingQueue)
                 {
+                    if (message.Content == "!reset")
+                    {
+                        Lobby lobby = _lobbies.FirstOrDefault(l => l.Players.Contains(currentPlayer)); //get lobby with currentPlayer
+                        _lobbies.Remove(lobby);
+
+                        SetLobbyChannelId(guild, lobby);
+                        DeleteChannelAsync(_client, lobby);
+
+                        await message.Channel.SendMessageAsync("Success!");
+                        currentPlayer.PlayerState = PlayerState.Basic;
+                        return Task.CompletedTask;
+                    }
+
                     await channel.SendMessageAsync("Your game or turn isn't ready");
                     return Task.CompletedTask;
                 }
@@ -106,7 +119,7 @@ class Program
                     else if (horizontalIndex == 3) horizontalIndex += 2;
 
                     currentPlayer.SetIndex("horizontal", horizontalIndex);
-                    
+
                     Models.Game game = _games.FirstOrDefault(g => g.Lobby.Players.Contains(currentPlayer)); //game witch contain current player
 
                     //examination for engaged cell
@@ -148,6 +161,13 @@ class Program
 
                 if (currentPlayer.PlayerState == PlayerState.CreateLobby)
                 {
+                    if (message.Content == "!reset")
+                    {
+                        await channel.SendMessageAsync("Success!");
+                        currentPlayer.PlayerState = PlayerState.Basic;
+                        return Task.CompletedTask;
+                    }
+
                     //examination for existing lobby with the same name
                     if (_lobbies.Any(l => l.LobbyName == message.Content))
                     {
@@ -221,6 +241,9 @@ class Program
                         case "!join":
                             await channel.SendMessageAsync("Enter lobby name");
                             currentPlayer.PlayerState = PlayerState.JoinLobby;
+                            return Task.CompletedTask;
+                        case "!faq":
+                            await message.Author.SendMessageAsync("This bot contains two commands:\n**!create** - to create lobby\n**!join** - to join into lobby");
                             return Task.CompletedTask;
                     }
                 }
