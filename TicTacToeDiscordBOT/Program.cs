@@ -42,7 +42,9 @@ class Program
     {
         try
         {
-            SocketGuild guild = _client.GetGuild(488362951087226880); //initiate guild with server id
+            IGuildChannel server = message.Channel as IGuildChannel; //get server
+
+            SocketGuild guild = _client.GetGuild(server.Guild.Id); //initiate guild with server id
 
             if (!message.Author.IsBot)
             {
@@ -79,7 +81,7 @@ class Program
                         Lobby lobby = _lobbies.FirstOrDefault(l => l.Players.Contains(currentPlayer)); //get lobby with currentPlayer
                         _lobbies.Remove(lobby);
 
-                        SetLobbyChannelId(guild, lobby);
+                        SetLobbyChannelIdAsync(guild, lobby);
                         DeleteChannelAsync(_client, lobby);
 
                         await message.Channel.SendMessageAsync("Success!");
@@ -208,7 +210,7 @@ class Program
                     lobby.AddPlayer(currentPlayer);
                     lobby.SetFull(true);
 
-                    SetLobbyChannelId(guild, lobby);
+                    SetLobbyChannelIdAsync(guild, lobby);
 
                     await channel.SendMessageAsync($"Lobby was filled. Lobby name: **{lobby.LobbyName}**\nLaunching the game...\n");
 
@@ -275,7 +277,7 @@ class Program
         await channel.DeleteAsync();
     }
 
-    private async void SetLobbyChannelId(SocketGuild guild, Lobby lobby) => lobby.SetChannelId(guild.Channels.FirstOrDefault(c => c.Name == $"lobby-{lobby.LobbyName.ToLower()}").Id); //setting id of lobby at discord server
+    private async void SetLobbyChannelIdAsync(SocketGuild guild, Lobby lobby) => lobby.SetChannelId(guild.Channels.FirstOrDefault(c => c.Name == $"lobby-{lobby.LobbyName.ToLower()}").Id); //setting id of lobby at discord server
 
     private async void EndGameAsync(DiscordSocketClient client, List<Lobby> lobbies, List<Models.Game> games, Models.Game game, Player currentPlayer, Player enemyPlayer, string text)
     {
