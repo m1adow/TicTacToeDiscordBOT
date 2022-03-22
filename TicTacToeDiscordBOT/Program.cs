@@ -43,8 +43,10 @@ class Program
         try
         {
             IGuildChannel server = message.Channel as IGuildChannel; //get server
+            SocketGuild? guild; //declare socket guild variable
 
-            SocketGuild guild = _client.GetGuild(server.Guild.Id); //initiate guild with server id
+            if (server is not null) guild = _client.GetGuild(server.Guild.Id); //assign guild if server is not null
+            else guild = null;
 
             if (!message.Author.IsBot)
             {
